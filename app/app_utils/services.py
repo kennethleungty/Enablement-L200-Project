@@ -38,25 +38,18 @@ _AGENT_DIR = os.path.dirname(
 
 @functools.cache
 def get_session_service():
-    """Process-wide session service shared across every serving surface."""
-    if uri := os.environ.get("SESSION_SERVICE_URI"):
-        return create_session_service_from_options(
-            base_dir=_AGENT_DIR, session_service_uri=uri
-        )
-    if agent_engine_id := os.environ.get("GOOGLE_CLOUD_AGENT_ENGINE_ID"):
-        from google.adk.sessions.vertex_ai_session_service import VertexAiSessionService
+    """Process-wide persistent session service shared across every serving surface."""
+    from app.memory import create_persistent_session_service
 
-        return VertexAiSessionService(
-            project=os.environ.get("GOOGLE_CLOUD_PROJECT"),
-            # Runtime-injected agent-engine region, not GOOGLE_CLOUD_LOCATION
-            # (which agent.py pins to "global").
-            location=os.environ.get("GOOGLE_CLOUD_AGENT_ENGINE_LOCATION")
-            or os.environ.get("GOOGLE_CLOUD_LOCATION"),
-            agent_engine_id=agent_engine_id,
-        )
-    from google.adk.sessions.in_memory_session_service import InMemorySessionService
+    return create_persistent_session_service(base_dir=_AGENT_DIR)
 
-    return InMemorySessionService()
+
+@functools.cache
+def get_memory_service():
+    """Process-wide long-term memory service (Memory Bank in Gemini platform or local)."""
+    from app.memory import create_memory_service
+
+    return create_memory_service()
 
 
 @functools.cache

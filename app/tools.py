@@ -343,16 +343,20 @@ _ROLE_KNOWLEDGE_BASE: dict[str, dict[str, list[dict[str, str]]]] = {
 
 
 def _get_noogler_store(tool_context: ToolContext | None) -> dict[str, dict[str, Any]]:
-    """Returns persistent session-backed Noogler records, seeding defaults if needed."""
+    """Returns persistent SQLite + session-backed Noogler records, seeding defaults if needed."""
+    from app.memory import get_persistent_onboarding_store
+
+    persistent_store = get_persistent_onboarding_store()
     if tool_context is None:
-        return {k: dict(v) for k, v in _SEED_NOOGLER_RECORDS.items()}
+        return persistent_store.get_all_profiles(_SEED_NOOGLER_RECORDS)
     if "noogler_records" not in tool_context.state:
+        db_profiles = persistent_store.get_all_profiles(_SEED_NOOGLER_RECORDS)
         tool_context.state["noogler_records"] = {
             k: {
                 **v,
                 "enabled_software_groups": list(v["enabled_software_groups"]),
             }
-            for k, v in _SEED_NOOGLER_RECORDS.items()
+            for k, v in db_profiles.items()
         }
     return tool_context.state["noogler_records"]
 
@@ -506,6 +510,13 @@ def submit_payroll_and_benefits_election(
         validated_in.retirement_401k_percent
     )
     record["payroll_direct_deposit_configured"] = True
+    from app.memory import get_persistent_onboarding_store
+    from app.secrets import get_integration_client_config
+
+    _workday_client_cfg = get_integration_client_config("workday_hr")
+    get_persistent_onboarding_store().upsert_profile(
+        validated_in.employee_id, record
+    )
 
     output = PayrollBenefitsElectionOutputSchema(
         employee_id=validated_in.employee_id,
@@ -671,6 +682,14 @@ def request_hardware_or_software_provisioning(
             record["enabled_software_groups"].append(validated_in.item_identifier)
         eta = "Immediate (propagates within 15 minutes)"
 
+    from app.memory import get_persistent_onboarding_store
+    from app.secrets import get_integration_client_config
+
+    _servicenow_client_cfg = get_integration_client_config("servicenow_it")
+    get_persistent_onboarding_store().upsert_profile(
+        validated_in.employee_id, record
+    )
+
     output = ProvisioningRequestOutputSchema(
         employee_id=validated_in.employee_id,
         request_category=validated_in.request_category,
@@ -744,16 +763,13 @@ def search_role_onboarding_knowledge_base(
             ),
         ).model_dump()
 
-    if validated_in.topic_filter == "all":
-        matched: list[dict[str, Any]] = []
-        for section, docs in role_docs.items():
-            for doc in docs:
-                matched.append({**doc, "pillar": section})
-    else:
-        matched = [
-            {**doc, "pillar": validated_in.topic_filter}
-            for doc in role_docs.get(validated_in.topic_filter, [])
-        ]
+    from app.memory import get_persistent_onboarding_store
+
+    matched = get_persistent_onboarding_store().query_role_knowledge(
+        job_role=validated_in.job_role,
+        topic_filter=validated_in.topic_filter,
+        seed_kb=_ROLE_KNOWLEDGE_BASE,
+    )
 
     if tool_context is not None:
         tool_context.state["last_retrieved_role_docs"] = matched
@@ -815,6 +831,13 @@ def save_personalized_onboarding_plan(
         "60_day": validated_in.day_60_milestones,
         "90_day": validated_in.day_90_milestones,
     }
+    from app.memory import get_persistent_onboarding_store
+
+    get_persistent_onboarding_store().save_onboarding_plan(
+        employee_id=validated_in.employee_id,
+        job_role=validated_in.job_role,
+        plan_record=plan_record,
+    )
     if tool_context is not None:
         plans = tool_context.state.get("user:saved_onboarding_plans", {})
         plans[validated_in.employee_id] = plan_record

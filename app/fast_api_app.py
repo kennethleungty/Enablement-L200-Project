@@ -43,6 +43,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app=adk_app,
         session_service=services.get_session_service(),
         artifact_service=services.get_artifact_service(),
+        memory_service=services.get_memory_service(),
         auto_create_session=True,
     )
     app.state.runner = runner

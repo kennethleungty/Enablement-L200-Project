@@ -235,8 +235,15 @@ class OnboardingPolicyGuardrailPlugin(BasePlugin):
         location: str | None = None,
     ) -> None:
         super().__init__(name="onboarding_policy_guardrail_plugin")
-        self.template_name = model_armor_template_name or os.getenv(
-            "MODEL_ARMOR_TEMPLATE_NAME", ""
+        from app.secrets import MODEL_ARMOR_TEMPLATE_SECRET_ID, get_secret
+
+        self.template_name = model_armor_template_name or (
+            get_secret(
+                MODEL_ARMOR_TEMPLATE_SECRET_ID,
+                env_var_fallback="MODEL_ARMOR_TEMPLATE_NAME",
+                default="",
+            )
+            or ""
         )
         self.location = location or os.getenv("GOOGLE_CLOUD_LOCATION", "us-east1")
         self._client: Any = None

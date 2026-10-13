@@ -32,6 +32,14 @@ from google.adk.plugins.reflect_retry_tool_plugin import ReflectAndRetryToolPlug
 from app.guardrails import (
     OnboardingPolicyGuardrailPlugin,
 )
+from app.memory import (
+    create_context_cache_config,
+    create_events_compaction_config,
+    trigger_background_memory_consolidation,
+)
+from app.observability import (
+    OnboardingObservabilityPlugin,
+)
 from app.routing import (
     FLASH_MODEL,
     PRO_MODEL,
@@ -179,13 +187,17 @@ root_agent = Agent(
         tech_logistics_agent,
         role_knowledge_agent,
     ],
+    after_agent_callback=trigger_background_memory_consolidation,
 )
 
 app = App(
     root_agent=root_agent,
     name="app",
     resumability_config=ResumabilityConfig(is_resumable=True),
+    events_compaction_config=create_events_compaction_config(),
+    context_cache_config=create_context_cache_config(),
     plugins=[
+        OnboardingObservabilityPlugin(),
         OnboardingPolicyGuardrailPlugin(),
         ReflectAndRetryToolPlugin(max_retries=2),
     ],
