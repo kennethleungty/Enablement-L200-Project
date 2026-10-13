@@ -12,18 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Strategic Model Routing configuration for the Noogler Onboarding Agent.
+"""Model routing configuration for the Noogler Onboarding Agent.
 
-Implements Rubric Category 3.2 (Strategic Model Routing):
-Each agent in the hierarchy has a fixed Gemini model tier matched to its cognitive load:
+Matches each agent in the hierarchy to a Gemini model tier suited to its task:
 - `FLASH_MODEL` (`gemini-3.8-flash`): Used by `noogler_onboarding_agent` (Coordinator),
-  `admin_onboarding_agent`, and `tech_logistics_agent` for fast intent routing and
-  transactional tool execution.
-- `PRO_MODEL` (`gemini-3.8-pro`): Used by `role_knowledge_agent` for deep multi-document
-  synthesis and tailored 30-60-90 day onboarding plan generation.
+  `admin_onboarding_agent`, and `tech_logistics_agent` for low-latency intent routing
+  and transactional tool execution, as well as background summarization and self-eval.
+- `PRO_MODEL` (`gemini-3.8-pro`): Used by `role_knowledge_agent` for deeper
+  multi-document synthesis and tailored 30-60-90 day onboarding plan generation.
 
-When the Coordinator transfers a turn via `sub_agents` (`transfer_to_agent`), ADK
-automatically routes the request to the specialist agent and its fixed model tier.
+When the Coordinator delegates a turn via `sub_agents` (`transfer_to_agent`), ADK
+automatically executes the turn on the target specialist's configured model tier.
 """
 
 from __future__ import annotations

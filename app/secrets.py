@@ -12,16 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Secure Secret Management via Google Cloud Secret Manager (Category 5.3).
+"""Runtime Secret Resolution via Google Cloud Secret Manager.
 
-Step 6a Implementation — Rubric Category 5.3 (Secure Secret Management):
-- Ensures **zero hardcoded API keys, credentials, or webhook tokens** exist in the
-  codebase.
+Architecture Overview:
+- Ensures zero hardcoded API keys, credentials, or webhook tokens exist in the codebase.
 - Provides `SecretManagerResolver` and `get_secret()`, which fetch secrets on demand
   from **Google Cloud Secret Manager** (`google.cloud.secretmanager.SecretManagerServiceClient`)
   using resource path `projects/{project_id}/secrets/{secret_id}/versions/{version}`,
-  with an LRU cache and a controlled environment-variable fallback for offline local
-  development and CI unit tests.
+  with an in-process cache and an environment-variable fallback for offline local
+  development and automated tests.
 """
 
 from __future__ import annotations

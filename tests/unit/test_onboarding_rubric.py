@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Comprehensive Unit Test Suite Verifying All 5 GEAP L200 Rubric Categories (19 Criteria)."""
+"""Unit test suite verifying tools, memory, multi-agent orchestration, observability, and infrastructure."""
 
 from __future__ import annotations
 
@@ -90,12 +90,12 @@ class _DummyToolContext:
 
 
 # ============================================================================
-# CATEGORY 1: TOOL & INTERFACE DESIGN
+# 1. TOOL & INTERFACE DESIGN TESTS
 # ============================================================================
 
 
 def test_category_1_tool_docstrings_and_descriptive_names() -> None:
-    """Verifies comprehensive docstrings and descriptive verb-noun tool names (1.1 & 1.2)."""
+    """Verifies comprehensive docstrings and descriptive verb-noun tool names."""
     domain_tools = [
         get_noogler_benefits_and_payroll_status,
         submit_payroll_and_benefits_election,
@@ -115,7 +115,7 @@ def test_category_1_tool_docstrings_and_descriptive_names() -> None:
 
 
 def test_category_1_explicit_json_schemas() -> None:
-    """Verifies strict Pydantic input schemas with extra='forbid' and regex/range bounds (1.3)."""
+    """Verifies strict Pydantic input schemas with extra='forbid' and regex/range bounds."""
     valid = AdminStatusInputSchema(employee_id="NOOG-1042")
     assert valid.employee_id == "NOOG-1042"
 
@@ -138,7 +138,7 @@ def test_category_1_explicit_json_schemas() -> None:
 
 
 def test_category_1_guided_error_handling_and_happy_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Verifies guided error responses with recovery_instructions and happy paths (1.4)."""
+    """Verifies guided error responses with recovery_instructions and happy paths."""
     monkeypatch.setenv("ONBOARDING_SQLITE_DB_PATH", str(tmp_path / "test_tools.sqlite3"))
     ctx = _DummyToolContext()
 
@@ -192,12 +192,12 @@ def test_category_1_guided_error_handling_and_happy_paths(tmp_path: Path, monkey
 
 
 # ============================================================================
-# CATEGORY 2: CONTEXT & MEMORY
+# 2. CONTEXT & MEMORY TESTS
 # ============================================================================
 
 
 def test_category_2_system_constitution_and_instructions() -> None:
-    """Verifies constitutional persona, routing rules, and PII boundaries (2.1)."""
+    """Verifies constitutional persona, routing rules, and PII boundaries."""
     assert "Constitutional Persona" in COORDINATOR_CONSTITUTION
     assert "Protect Sensitive Data (PII)" in COORDINATOR_CONSTITUTION
     assert "admin_onboarding_agent" in COORDINATOR_CONSTITUTION
@@ -206,7 +206,7 @@ def test_category_2_system_constitution_and_instructions() -> None:
 
 
 def test_category_2_history_compaction_and_context_caching() -> None:
-    """Verifies EventsCompactionConfig, ContextCacheConfig, and sliding window compaction (2.2)."""
+    """Verifies EventsCompactionConfig, ContextCacheConfig, and sliding window compaction."""
     compaction_cfg = create_events_compaction_config()
     assert compaction_cfg.summarizer is not None
 
@@ -225,7 +225,7 @@ def test_category_2_history_compaction_and_context_caching() -> None:
 
 @pytest.mark.asyncio
 async def test_category_2_persistent_sqlite_and_async_memory(tmp_path: Path) -> None:
-    """Verifies SQLite state persistence across instances (2.3) and async memory consolidation (2.4)."""
+    """Verifies SQLite state persistence across instances and async memory consolidation."""
     db_file = str(tmp_path / "persistent_test.sqlite3")
     store_1 = PersistentOnboardingStore(db_path=db_file)
     store_1.save_onboarding_plan(
@@ -259,12 +259,12 @@ async def test_category_2_persistent_sqlite_and_async_memory(tmp_path: Path) -> 
 
 
 # ============================================================================
-# CATEGORY 3: ORCHESTRATION & LOGIC
+# 3. ORCHESTRATION & LOGIC TESTS
 # ============================================================================
 
 
 def test_category_3_multi_agent_hierarchy_and_strategic_routing() -> None:
-    """Verifies 4-agent Coordinator pattern (3.1) and Flash vs. Pro routing (3.2)."""
+    """Verifies 4-agent Coordinator pattern and Flash vs. Pro model routing."""
     assert root_agent.name == "noogler_onboarding_agent"
     sub_names = [ag.name for ag in root_agent.sub_agents]
     assert sub_names == [
@@ -281,7 +281,7 @@ def test_category_3_multi_agent_hierarchy_and_strategic_routing() -> None:
 
 
 def test_category_3_guardrails_model_armor_and_self_eval() -> None:
-    """Verifies Model Armor input/output guardrails and LLM-as-a-Judge self-eval (3.3)."""
+    """Verifies Model Armor input/output guardrails and LLM-as-a-Judge self-evaluation."""
     plugin = OnboardingPolicyGuardrailPlugin()
     assert self_eval_judge_agent.output_schema is SelfEvaluationResult
 
@@ -323,7 +323,7 @@ def test_category_3_guardrails_model_armor_and_self_eval() -> None:
 
 
 def test_category_3_human_in_the_loop_hooks() -> None:
-    """Verifies HITL FunctionTool confirmation gates and ResumabilityConfig (3.4)."""
+    """Verifies HITL FunctionTool confirmation gates and ResumabilityConfig."""
     assert app.resumability_config is not None
     assert app.resumability_config.is_resumable is True
     assert submit_payroll_and_benefits_election_hitl_tool._require_confirmation is True
@@ -354,7 +354,7 @@ def test_category_3_human_in_the_loop_hooks() -> None:
 
 
 # ============================================================================
-# CATEGORY 4: OBSERVABILITY & TRACING
+# 4. OBSERVABILITY & TRACING TESTS
 # ============================================================================
 
 
@@ -362,7 +362,7 @@ def test_category_3_human_in_the_loop_hooks() -> None:
 async def test_category_4_structured_logs_intent_outcome_otel_and_pii_redaction(
     tmp_path: Path,
 ) -> None:
-    """Verifies JSON logging (4.1), Intent vs Outcome (4.2), OTel spans (4.3), and PII redaction (4.4)."""
+    """Verifies JSON logging, Intent vs Outcome events, OTel spans, and PII redaction."""
     clear_structured_log_records()
     clear_exported_otel_spans()
 
@@ -446,12 +446,12 @@ async def test_category_4_structured_logs_intent_outcome_otel_and_pii_redaction(
 
 
 # ============================================================================
-# CATEGORY 5: INFRASTRUCTURE, CI/CD, SECRET MANAGER & EVAL SUITE
+# 5. INFRASTRUCTURE, CI/CD, SECRET MANAGER & EVAL SUITE TESTS
 # ============================================================================
 
 
 def test_category_5_golden_eval_dataset_and_config() -> None:
-    """Verifies golden evaluation dataset and eval_config.yaml exist and are valid (5.1)."""
+    """Verifies golden evaluation dataset and eval_config.yaml exist and are valid."""
     dataset_path = PROJECT_ROOT / "tests" / "eval" / "datasets" / "basic-dataset.json"
     config_path = PROJECT_ROOT / "tests" / "eval" / "eval_config.yaml"
 
@@ -468,7 +468,7 @@ def test_category_5_golden_eval_dataset_and_config() -> None:
 
 
 def test_category_5_terraform_iac_files_present() -> None:
-    """Verifies declarative Terraform IaC files exist and define required resources (5.2)."""
+    """Verifies declarative Terraform IaC files exist and define required resources."""
     tf_dir = PROJECT_ROOT / "deployment" / "terraform" / "single-project"
     for tf_file in (
         "apis.tf",
@@ -487,7 +487,7 @@ def test_category_5_terraform_iac_files_present() -> None:
 
 
 def test_category_5_secret_manager_resolution(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Verifies Google Cloud Secret Manager resolution and env fallback with zero hardcoded secrets (5.3)."""
+    """Verifies Google Cloud Secret Manager resolution and env fallback with zero hardcoded secrets."""
 
     class _MockSecretClient:
         def access_secret_version(self, request: dict[str, str]) -> Any:

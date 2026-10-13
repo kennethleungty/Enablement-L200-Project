@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Declarative Google Cloud Secret Manager & Security Infrastructure (Category 5.2 & 5.3)
+# Declarative Google Cloud Secret Manager & Security Infrastructure
 # Provisions the Secret Manager secret containers referenced by `app/secrets.py`
-# and grants least-privilege accessor/security roles to the agent runtime identity.
+# and grants least-privilege accessor roles to the agent runtime service identity.
 
 locals {
   onboarding_secret_ids = [

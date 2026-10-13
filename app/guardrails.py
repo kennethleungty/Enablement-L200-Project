@@ -14,14 +14,15 @@
 
 """Google Cloud Model Armor & LLM-as-a-Judge Self-Evaluation Guardrail Plugin.
 
-Implements Rubric Category 3.3 (Guardrails & Policy Plugins):
-1. **Google Cloud Model Armor Integration (`sanitize_user_prompt` & `sanitize_model_response`)**:
+Two-layer security and policy enforcement across all agents:
+1. **Google Cloud Model Armor (`sanitize_user_prompt` & `sanitize_model_response`)**:
    Uses `google.cloud.modelarmor_v1.ModelArmorClient` inside an ADK `BasePlugin`
    (`OnboardingPolicyGuardrailPlugin`) to screen every incoming user prompt and
-   outgoing LLM response against a Model Armor template.
+   outgoing LLM response against a Model Armor template, backed by deterministic
+   local regex shields when running offline.
 2. **ADK LLM-as-a-Judge Self-Evaluator (`self_eval_judge_agent`)**:
-   Defines a dedicated ADK `Agent` running on `FLASH_MODEL` (`gemini-3.8-flash`) with a
-   strict Pydantic `output_schema=SelfEvaluationResult` to grade draft agent responses
+   Uses a dedicated ADK `Agent` running on `FLASH_MODEL` (`gemini-3.8-flash`) with a
+   strict Pydantic `output_schema=SelfEvaluationResult` to audit candidate responses
    for policy compliance, grounding, and PII safety before delivery.
 """
 

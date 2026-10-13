@@ -14,11 +14,10 @@
 
 """Domain tools for the Noogler Onboarding Agent.
 
-Implements Rubric Category 1 (Tool & Interface Design):
-1. Comprehensive Tool Docstrings: Human- and LLM-readable descriptions and Args.
-2. Descriptive Naming: Specific verb-noun function names per specialist domain.
-3. Explicit JSON Schemas: Strict Pydantic input/output models with Field constraints.
-4. Guided Error Handling: Structured error payloads with actionable recovery_instructions.
+Provides domain-specific tools across Administrative Onboarding, Tech Logistics,
+and Role Onboarding & 30-60-90 Day Planning, backed by strict Pydantic contracts,
+guided error payloads for LLM self-correction, and Human-in-the-Loop (HITL)
+confirmation gates for high-stakes mutations.
 """
 
 from __future__ import annotations
@@ -31,6 +30,9 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 # ============================================================================
 # 1. EXPLICIT JSON SCHEMAS (Pydantic Input / Output & Guided Error Contracts)
 # ============================================================================
+# Strict Pydantic schemas with `ConfigDict(extra="forbid")` and field-level
+# constraints validate LLM tool inputs and outputs before execution, rejecting
+# hallucinated arguments early.
 
 VALID_HEALTH_PLANS = ("GOOG_PPO_STANDARD", "GOOG_HDHP_HSA", "GOOG_HMO_PREMIER")
 VALID_HARDWARE_SKUS = (
@@ -48,8 +50,11 @@ VALID_SOFTWARE_PACKAGES = (
 HIGH_RISK_ACCESS_PACKAGES = ("PROD_DB_ADMIN_ACCESS",)
 
 
+# Returning structured `recovery_instructions` instead of raising raw exceptions
+# lets the model self-correct invalid parameters or ask a clarifying question on
+# the next turn without crashing the conversation loop.
 class GuidedToolErrorResponse(BaseModel):
-    """Standardized guided error response returned to the LLM instead of crashing."""
+    """Standardized guided error response returned to the LLM instead of raising raw exceptions."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -851,7 +856,7 @@ def save_personalized_onboarding_plan(
 
 
 # ============================================================================
-# 6. HUMAN-IN-THE-LOOP (HITL) WRAPPED TOOLS (Category 3.4)
+# 6. HUMAN-IN-THE-LOOP (HITL) WRAPPED TOOLS
 # ============================================================================
 
 
@@ -877,13 +882,15 @@ def requires_it_provisioning_approval(
     )
 
 
-# High-stakes Administrative Tool wrapped with mandatory human confirmation
+# `require_confirmation` pauses ADK tool execution and prompts for explicit human
+# sign-off before committing high-stakes payroll or hardware/access mutations.
 submit_payroll_and_benefits_election_hitl_tool = FunctionTool(
     submit_payroll_and_benefits_election,
     require_confirmation=True,
 )
 
-# High-stakes Tech Logistics Tool wrapped with conditional human confirmation
+# Conditional `require_confirmation` predicate triggers human sign-off only for
+# physical hardware orders or elevated cloud/production access packages.
 request_hardware_or_software_provisioning_hitl_tool = FunctionTool(
     request_hardware_or_software_provisioning,
     require_confirmation=requires_it_provisioning_approval,

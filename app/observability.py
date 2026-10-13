@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Observability, Cloud Trace, Cloud Logging, Intent/Outcome & PII Redaction (Category 4).
+"""Observability, Cloud Trace, Cloud Logging, Intent/Outcome & PII Redaction.
 
 How ADK's Built-In GCP Observability & This Module Work Together:
 1. **ADK Built-In Cloud Trace & GenAI Telemetry (`app/fast_api_app.py`)**:
@@ -23,21 +23,21 @@ How ADK's Built-In GCP Observability & This Module Work Together:
    - ADK also provides `BigQueryAgentAnalyticsPlugin` (via `google-adk[bigquery-analytics]`)
      for streaming structured agent events to BigQuery when `BQ_ANALYTICS_DATASET_ID`
      is configured (`create_bigquery_agent_analytics_plugin()`).
-2. **Why `app/observability.py` Layers On Top (Rubric Category 4.1 – 4.4)**:
-   - **Category 4.1 (Structured JSON Logging + Google Cloud Logging)**:
-     Uses `google-cloud-logging` (`StructuredLogHandler` / Cloud Logging JSON schema with
-     `logging.googleapis.com/trace` and `logging.googleapis.com/spanId`) so logs correlate
-     directly with Cloud Trace spans in the Google Cloud Console.
-   - **Category 4.2 (Explicit Intent vs. Outcome Capture)**:
-     ADK's default spans record execution timing, whereas the L200 rubric specifically
-     requires logs that explicitly capture **intended action (`INTENT`) before execution**
-     and **actual result (`OUTCOME`) after execution** across agents, LLM calls, and tools.
-   - **Category 4.3 (Distributed Tracing with Cloud Trace + Local Span Buffer)**:
+2. **Additional Enterprise Observability Layers in `app/observability.py`**:
+   - **Structured JSON Logging + Google Cloud Logging Correlation**:
+     Formats log records as single-line JSON with `logging.googleapis.com/trace` and
+     `logging.googleapis.com/spanId` so logs correlate directly with Cloud Trace
+     waterfalls in the Google Cloud Console.
+   - **Explicit Intent vs. Outcome Capture**:
+     Records both the **intended action (`INTENT`) before execution** and the **actual
+     result (`OUTCOME`) after execution** across agents, LLM calls, and tools so
+     inflight crashes or policy blocks remain auditable.
+   - **Distributed Tracing with Cloud Trace + Local Span Buffer**:
      Attaches `CloudTraceSpanExporter` (`opentelemetry.exporter.cloud_trace`) when a GCP
      project is configured alongside an in-memory span buffer (`_InMemorySpanBuffer`) so
      hierarchical parent-child spans (`onboarding.agent.*` -> `onboarding.tool.*`) can
-     be verified both in **Google Cloud Trace** and in offline `pytest` unit tests.
-   - **Category 4.4 (Input + Output PII Redaction via Cloud DLP + Regex)**:
+     be inspected both in **Google Cloud Trace** and in offline tests.
+   - **Input + Output PII Redaction via Cloud DLP + Regex**:
      Actively scrubs sensitive PII across **both inputs and outputs** (LLM prompt inputs,
      LLM response outputs, tool input arguments, tool output results, structured JSON
      logs, and long-term memory persistence) using **Google Cloud Sensitive Data
@@ -72,7 +72,7 @@ from opentelemetry.sdk.trace.export import (
 )
 
 # ============================================================================
-# 1. PII REDACTION PIPELINE (Category 4.4: Cloud DLP + Deterministic Regex)
+# 1. PII REDACTION PIPELINE (Cloud DLP + Deterministic Regex)
 #    Active on BOTH Inputs (prompts, tool_args) and Outputs (responses, results,
 #    structured logs, and long-term memory consolidation).
 # ============================================================================
@@ -190,7 +190,7 @@ def scrub_pii(value: Any) -> Any:
 
 
 # ============================================================================
-# 2. DISTRIBUTED TRACING (Category 4.3: Google Cloud Trace + OpenTelemetry)
+# 2. DISTRIBUTED TRACING (Google Cloud Trace + OpenTelemetry)
 # ============================================================================
 
 
@@ -281,7 +281,7 @@ def get_current_trace_context() -> dict[str, str]:
 
 
 # ============================================================================
-# 3. STRUCTURED JSON LOGGING & GOOGLE CLOUD LOGGING (Category 4.1)
+# 3. STRUCTURED JSON LOGGING & GOOGLE CLOUD LOGGING CORRELATION
 # ============================================================================
 
 _STRUCTURED_LOG_RECORDS: list[dict[str, Any]] = []
@@ -367,10 +367,7 @@ def log_structured_event(
     phase: str | None = None,
     metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Emits a PII-scrubbed structured JSON log entry and records it in the audit buffer.
-
-    Satisfies Rubric Category 4.1 (Structured JSON Logging) & Category 4.4 (PII Redaction).
-    """
+    """Emits a PII-scrubbed structured JSON log entry and records it in the audit buffer."""
     trace_ctx = get_current_trace_context()
     project_id = os.environ.get("GOOGLE_CLOUD_PROJECT", "local-dev-project")
     scrubbed_message = scrub_pii(message)
@@ -419,7 +416,7 @@ def clear_structured_log_records() -> None:
 
 
 # ============================================================================
-# 4. INTENT VS. OUTCOME CAPTURE & OTEL PLUGIN (Category 4.2, 4.3 & 4.4)
+# 4. INTENT VS. OUTCOME CAPTURE & OPENTELEMETRY PLUGIN
 # ============================================================================
 
 

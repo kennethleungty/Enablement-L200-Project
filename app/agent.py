@@ -15,14 +15,15 @@
 
 """Multi-Agent Coordinator and Specialist Sub-Agents for Noogler Onboarding.
 
-Step 3a Implementation:
-- Category 3.1 (Multi-Agent Patterns): 1 Root Coordinator + 3 Specialist Sub-Agents
-  (`admin_onboarding_agent`, `tech_logistics_agent`, `role_knowledge_agent`).
-- Category 3.2 (Strategic Model Routing): Flash (`gemini-3.8-flash`) for Coordinator,
-  Administrative, and Tech Logistics agents; Pro (`gemini-3.8-pro`) for Role Knowledge
-  & 30-60-90 Day Planning agent.
-- Category 2.1 (Robust System Instructions): Clear constitutional instructions defining
-  persona, domain boundaries, and strict operational constraints for every agent.
+Architecture Overview:
+- 4-Agent Coordinator Hierarchy: 1 Root Coordinator (`noogler_onboarding_agent`)
+  delegates domain requests across 3 Specialist Sub-Agents (`admin_onboarding_agent`,
+  `tech_logistics_agent`, `role_knowledge_agent`).
+- Tiered Model Routing: Flash (`gemini-3.8-flash`) powers fast intent routing and
+  transactional HR/IT lookups; Pro (`gemini-3.8-pro`) powers multi-document role
+  synthesis and tailored 30-60-90 day onboarding plan generation.
+- System Constitution: Explicit persona, domain scope, PII safety boundaries, and
+  guided error-recovery instructions govern every agent in the hierarchy.
 """
 
 from google.adk.agents import Agent
@@ -58,6 +59,7 @@ MODEL = FLASH_MODEL
 
 # ============================================================================
 # SYSTEM CONSTITUTION & SPECIALIST INSTRUCTIONS
+# Defines each agent's persona, domain scope, PII boundaries, and recovery rules.
 # ============================================================================
 
 COORDINATOR_CONSTITUTION = """
@@ -168,7 +170,9 @@ tech_logistics_agent = create_tech_logistics_agent()
 role_knowledge_agent = create_role_knowledge_agent()
 
 # ============================================================================
-# ROOT COORDINATOR AGENT (4 Agents Total: 1 Coordinator + 3 Sub-Agents)
+# ROOT COORDINATOR & ADK APP CONFIGURATION
+# Wires the 4-agent hierarchy, resumable HITL execution, context compaction,
+# context caching, background memory consolidation, and runtime plugins.
 # ============================================================================
 
 root_agent = Agent(
@@ -187,14 +191,18 @@ root_agent = Agent(
         tech_logistics_agent,
         role_knowledge_agent,
     ],
+    # Schedules non-blocking memory consolidation after each completed turn.
     after_agent_callback=trigger_background_memory_consolidation,
 )
 
 app = App(
     root_agent=root_agent,
     name="app",
+    # Required to pause and resume invocation state during HITL tool confirmations.
     resumability_config=ResumabilityConfig(is_resumable=True),
+    # Summarizes older turns with Gemini Flash when history exceeds token thresholds.
     events_compaction_config=create_events_compaction_config(),
+    # Caches static system instructions and onboarding context on Gemini platform.
     context_cache_config=create_context_cache_config(),
     plugins=[
         OnboardingObservabilityPlugin(),

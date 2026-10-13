@@ -12,21 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Context Compaction, Persistent Session State, and Async Memory Operations (Category 2).
+"""Context Compaction, Persistent Session State, and Async Memory Operations.
 
-Step 4a Implementation — Rubric Category 2.2 (History Compaction):
+Architecture Overview:
 1. **Token-Based Event Compaction (`EventsCompactionConfig` + `LlmEventSummarizer`)**:
    Automatically summarizes older conversation events using Gemini Flash once prompt
    tokens cross `COMPACTION_TOKEN_THRESHOLD` (32,000 tokens), while retaining the most
-   recent `EVENT_RETENTION_SIZE` (5) raw events un-compacted.
+   recent `EVENT_RETENTION_SIZE` (5) raw events verbatim.
 2. **Google Cloud Context Caching (`ContextCacheConfig`)**:
-   Caches large static system instructions and retrieved onboarding documents on
+   Caches static system instructions and retrieved onboarding documents on
    Gemini platform when context exceeds `MIN_CACHE_TOKENS` (2,048 tokens).
-3. **Sliding-Window Truncation Fallback (`compact_conversation_history_sliding_window`)**:
+3. **Sliding-Window Truncation (`compact_conversation_history_sliding_window`)**:
    Provides deterministic token-budget and sliding-window truncation for long histories.
-
-Step 4b Implementation — Rubric Categories 2.3 & 2.4:
-4. **Persistent Session & Knowledge State (Category 2.3)**:
+4. **Persistent Session & Knowledge State**:
    - `PersistentOnboardingStore`: SQLite-backed database persisting Noogler profiles,
      saved 30-60-90 day onboarding plans, role knowledge documents, and consolidated
      long-term memories across turns and server restarts.
@@ -35,10 +33,10 @@ Step 4b Implementation — Rubric Categories 2.3 & 2.4:
      `DatabaseSessionService` locally so session state persists across turns.
    - `create_gemini_platform_search_tool`: Wraps Search in Gemini platform
      (`VertexAiSearchTool`) for grounded enterprise knowledge retrieval.
-5. **Async Memory Operations (Category 2.4)**:
+5. **Non-Blocking Async Memory Consolidation**:
    - `trigger_background_memory_consolidation` (`after_agent_callback`): Uses
      `asyncio.create_task()` to run `async_consolidate_session_memory()` in the
-     background without blocking the main user conversation response thread.
+     background without blocking the user conversation response turn.
 """
 
 from __future__ import annotations
@@ -64,7 +62,7 @@ from app.routing import FLASH_MODEL, build_gemini_model
 logger = logging.getLogger(__name__)
 
 # ============================================================================
-# 1. ADK TOKEN-BASED HISTORY COMPACTION (Category 2.2 — Step 4a)
+# 1. ADK TOKEN-BASED HISTORY COMPACTION & CONTEXT CACHING
 # ============================================================================
 
 COMPACTION_TOKEN_THRESHOLD = 32_000
@@ -175,7 +173,7 @@ def compact_conversation_history_sliding_window(
 
 
 # ============================================================================
-# 2. PERSISTENT SESSION & KNOWLEDGE DATABASE (Category 2.3 — Step 4b)
+# 2. PERSISTENT SESSION & KNOWLEDGE DATABASE
 # ============================================================================
 
 DEFAULT_SQLITE_DB_PATH = os.environ.get(
@@ -188,9 +186,8 @@ class PersistentOnboardingStore:
     """SQLite-backed persistent store for Noogler profiles, 30-60-90 plans,
     role knowledge documents, and consolidated long-term memories.
 
-    Satisfies Rubric Category 2.3 (Persistent Session State) by ensuring all
-    state changes, onboarding plans, and knowledge retrieval are backed by a
-    durable relational/document database across conversation turns and restarts.
+    Ensures all state mutations, onboarding plans, and knowledge retrieval are
+    backed by a durable relational store across conversation turns and restarts.
     """
 
     def __init__(self, db_path: str = DEFAULT_SQLITE_DB_PATH) -> None:
@@ -443,7 +440,7 @@ def create_persistent_session_service(
     db_url: str | None = None,
     base_dir: str | None = None,
 ) -> Any:
-    """Creates a persistent ADK SessionService across turns (Category 2.3).
+    """Creates a persistent ADK SessionService across conversation turns.
 
     Resolution order:
     1. Explicit `SESSION_SERVICE_URI` or `db_url` (e.g. `sqlite:///...` or Postgres).
@@ -510,7 +507,7 @@ def create_gemini_platform_search_tool(
 
 
 # ============================================================================
-# 3. ASYNC MEMORY OPERATIONS (Category 2.4 — Step 4b)
+# 3. BACKGROUND ASYNC MEMORY CONSOLIDATION
 # ============================================================================
 
 # Track in-flight background memory tasks so Python's garbage collector never
@@ -553,7 +550,7 @@ async def async_consolidate_session_memory(
     memory_service: Any | None = None,
     store: PersistentOnboardingStore | None = None,
 ) -> dict[str, Any]:
-    """Asynchronously consolidates turn insights into long-term memory (Category 2.4).
+    """Asynchronously consolidates turn insights into long-term memory.
 
     Executed inside a background `asyncio.Task` spawned by `after_agent_callback`
     so the user never waits on memory extraction or persistence.
@@ -634,7 +631,6 @@ def trigger_background_memory_consolidation(
 ) -> types.Content | None:
     """Non-blocking `after_agent_callback` that schedules background memory consolidation.
 
-    Satisfies Rubric Category 2.4 (Async Memory Operations):
     Spawns `async_consolidate_session_memory` via `asyncio.create_task()` on the
     running event loop and immediately returns `None` so the user's conversation
     response is delivered with zero added latency.
